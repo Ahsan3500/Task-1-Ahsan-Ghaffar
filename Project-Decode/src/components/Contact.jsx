@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 function Contact() {
   const [formData, setFormData] = useState({
@@ -9,20 +9,71 @@ function Contact() {
     message: '',
   })
 
+  const [packages, setPackages] = useState([])
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  // Fetch packages dynamically from DB for the dropdown
+  useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        const response = await fetch('http://localhost:3001/api/packages')
+        if (!response.ok) throw new Error('Failed to fetch packages')
+        const data = await response.json()
+        setPackages(data)
+      } catch (err) {
+        // silently fail — dropdown will just be empty
+      }
+    }
+    fetchPackages()
+  }, [])
+
+  // Auto-reset form after 3 seconds
+  useEffect(() => {
+    if (submitted) {
+      const timer = setTimeout(() => {
+        setSubmitted(false)
+        setFormData({ name: '', email: '', phone: '', package: '', message: '' })
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [submitted])
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name || !formData.email || !formData.phone || !formData.package || !formData.message) {
       setError('Please fill in all fields!')
       return
     }
+
     setError('')
-    setSubmitted(true)
+    setLoading(true)
+
+    try {
+      const response = await fetch('http://localhost:3001/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.error || 'Something went wrong!')
+        return
+      }
+
+      setSubmitted(true)
+
+    } catch (err) {
+      setError('Could not connect to server. Make sure backend is running!')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (submitted) {
@@ -57,18 +108,10 @@ function Contact() {
       backgroundColor: '#A0D4E0',
       textAlign: 'center',
     }}>
-      <h2 style={{
-        fontSize: '2.5rem',
-        color: '#3a2e2e',
-        marginBottom: '10px',
-      }}>
+      <h2 style={{ fontSize: '2.5rem', color: '#3a2e2e', marginBottom: '10px' }}>
         Get In Touch
       </h2>
-      <p style={{
-        color: '#3a2e2e',
-        marginBottom: '50px',
-        fontSize: '1rem',
-      }}>
+      <p style={{ color: '#3a2e2e', marginBottom: '50px', fontSize: '1rem' }}>
         Ready to plan your next adventure? Contact us today!
       </p>
 
@@ -82,11 +125,7 @@ function Contact() {
       }}>
 
         {error && (
-          <p style={{
-            color: 'red',
-            marginBottom: '20px',
-            fontSize: '0.9rem',
-          }}>
+          <p style={{ color: 'red', marginBottom: '20px', fontSize: '0.9rem' }}>
             ⚠️ {error}
           </p>
         )}
@@ -98,13 +137,9 @@ function Contact() {
           value={formData.name}
           onChange={handleChange}
           style={{
-            width: '100%',
-            padding: '15px',
-            marginBottom: '20px',
-            borderRadius: '10px',
-            border: '1px solid #ddd',
-            fontSize: '1rem',
-            boxSizing: 'border-box',
+            width: '100%', padding: '15px', marginBottom: '20px',
+            borderRadius: '10px', border: '1px solid #ddd',
+            fontSize: '1rem', boxSizing: 'border-box',
           }}
         />
 
@@ -115,13 +150,9 @@ function Contact() {
           value={formData.email}
           onChange={handleChange}
           style={{
-            width: '100%',
-            padding: '15px',
-            marginBottom: '20px',
-            borderRadius: '10px',
-            border: '1px solid #ddd',
-            fontSize: '1rem',
-            boxSizing: 'border-box',
+            width: '100%', padding: '15px', marginBottom: '20px',
+            borderRadius: '10px', border: '1px solid #ddd',
+            fontSize: '1rem', boxSizing: 'border-box',
           }}
         />
 
@@ -132,35 +163,29 @@ function Contact() {
           value={formData.phone}
           onChange={handleChange}
           style={{
-            width: '100%',
-            padding: '15px',
-            marginBottom: '20px',
-            borderRadius: '10px',
-            border: '1px solid #ddd',
-            fontSize: '1rem',
-            boxSizing: 'border-box',
+            width: '100%', padding: '15px', marginBottom: '20px',
+            borderRadius: '10px', border: '1px solid #ddd',
+            fontSize: '1rem', boxSizing: 'border-box',
           }}
         />
 
+        {/* Dynamic dropdown from MongoDB */}
         <select
           name="package"
           value={formData.package}
           onChange={handleChange}
           style={{
-            width: '100%',
-            padding: '15px',
-            marginBottom: '20px',
-            borderRadius: '10px',
-            border: '1px solid #ddd',
-            fontSize: '1rem',
-            boxSizing: 'border-box',
-            color: '#555',
+            width: '100%', padding: '15px', marginBottom: '20px',
+            borderRadius: '10px', border: '1px solid #ddd',
+            fontSize: '1rem', boxSizing: 'border-box', color: '#555',
           }}
         >
           <option value="">Select a Package</option>
-          <option value="Northern Areas Tour">Northern Areas Tour</option>
-          <option value="Swat Valley Escape">Swat Valley Escape</option>
-          <option value="Lahore Heritage Trip">Lahore Heritage Trip</option>
+          {packages.map((pkg) => (
+            <option key={pkg.id} value={pkg.title}>
+              {pkg.title}
+            </option>
+          ))}
         </select>
 
         <textarea
@@ -170,31 +195,27 @@ function Contact() {
           value={formData.message}
           onChange={handleChange}
           style={{
-            width: '100%',
-            padding: '15px',
-            marginBottom: '20px',
-            borderRadius: '10px',
-            border: '1px solid #ddd',
-            fontSize: '1rem',
-            boxSizing: 'border-box',
-            resize: 'none',
+            width: '100%', padding: '15px', marginBottom: '20px',
+            borderRadius: '10px', border: '1px solid #ddd',
+            fontSize: '1rem', boxSizing: 'border-box', resize: 'none',
           }}
         />
 
         <button
           onClick={handleSubmit}
+          disabled={loading}
           style={{
-            backgroundColor: '#A5856F',
+            backgroundColor: loading ? '#ccc' : '#A5856F',
             color: 'white',
             padding: '15px 40px',
             border: 'none',
             borderRadius: '30px',
             fontSize: '1rem',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
             width: '100%',
           }}
         >
-          Send Message
+          {loading ? 'Sending...' : 'Send Message'}
         </button>
 
       </div>
